@@ -72,7 +72,9 @@ function setuptree() {
   rm -rf ${TOPDIR:?}/*
   b=$( mktemp -d $TOPDIR/orchestratorXXXXXX ) || return 1
   mkdir -p $b/orchestrator
-  mkdir -p $b/orchestrator${prefix}/orchestrator/
+  mkdir -p $b/orchestrator/usr/bin
+  mkdir -p $b/orchestrator/usr/share/orchestrator/
+  mkdir -p $b/orchestrator${prefix}/
   mkdir -p $b/orchestrator/etc/init.d
   mkdir -p $b/orchestrator-cli/usr/bin
   mkdir -p $b/orchestrator-client/usr/bin
@@ -86,8 +88,9 @@ function oinstall() {
 
   cd  $mydir
   gofmt -s -w  go/
-  rsync -qa ./resources $builddir/orchestrator${prefix}/orchestrator/
-  rsync -qa ./conf/orchestrator-sample*.conf.json $builddir/orchestrator${prefix}/orchestrator/
+  rsync -qa ./resources $builddir/orchestrator/usr/share/orchestrator/
+  rsync -qa ./conf/orchestrator-sample*.conf.json $builddir/orchestrator/etc/
+  rsync -qa ./client/* $builddir/orchestrator-client/usr/bin
   cp etc/init.d/orchestrator.bash $builddir/orchestrator/etc/init.d/orchestrator
   chmod +x $builddir/orchestrator/etc/init.d/orchestrator
 }
@@ -108,8 +111,8 @@ function package() {
       tar -C $builddir/orchestrator -czf $TOPDIR/orchestrator-"${RELEASE_VERSION}"-$target-$arch.tar.gz ./
 
       echo "Creating Distro full packages"
-      fpm -v "${RELEASE_VERSION}" --epoch 1 -f -s dir -n orchestrator -m shlomi-noach --description "MySQL replication topology management and HA" --url "https://github.com/github/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $builddir/orchestrator --prefix=/ --config-files /usr/local/orchestrator/resources/public/css/custom.css --config-files /usr/local/orchestrator/resources/public/js/custom.js -t rpm .
-      fpm -v "${RELEASE_VERSION}" --epoch 1 -f -s dir -n orchestrator -m shlomi-noach --description "MySQL replication topology management and HA" --url "https://github.com/github/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $builddir/orchestrator --prefix=/ --config-files /usr/local/orchestrator/resources/public/css/custom.css --config-files /usr/local/orchestrator/resources/public/js/custom.js -t deb .
+      fpm -v "${RELEASE_VERSION}" --epoch 1 -f -s dir -n orchestrator -m shlomi-noach --description "MySQL replication topology management and HA" --url "https://github.com/github/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $builddir/orchestrator --prefix=/ --config-files /usr/share/orchestrator/resources/public/css/custom.css --config-files /usr/share/orchestrator/resources/public/js/custom.js -t rpm .
+      fpm -v "${RELEASE_VERSION}" --epoch 1 -f -s dir -n orchestrator -m shlomi-noach --description "MySQL replication topology management and HA" --url "https://github.com/github/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $builddir/orchestrator --prefix=/ --config-files /usr/share/orchestrator/resources/public/css/custom.css --config-files /usr/share/orchestrator/resources/public/js/custom.js -t deb .
 
       cd $TOPDIR
       # orchestrator-cli packaging -- executable only
@@ -154,7 +157,7 @@ function build() {
   prefix="$4"
   ldflags="-X main.AppVersion=${RELEASE_VERSION} -X main.GitCommit=${GIT_COMMIT}"
   echo "Building via $(go version)"
-  gobuild="go build -i ${opt_race} -ldflags \"$ldflags\" -o $builddir/orchestrator${prefix}/orchestrator/orchestrator go/cmd/orchestrator/main.go"
+  gobuild="go build -i ${opt_race} -ldflags \"$ldflags\" -o $builddir/orchestrator${prefix}/orchestrator go/cmd/orchestrator/main.go"
 
   case $os in
     'linux')
@@ -164,9 +167,8 @@ function build() {
       echo "GOOS=darwin GOARCH=amd64 $gobuild" | bash
     ;;
   esac
-  [[ $(find $builddir/orchestrator${prefix}/orchestrator/ -type f -name orchestrator) ]] &&  echo "orchestrator binary created" || (echo "Failed to generate orchestrator binary" ; exit 1)
-  cp $builddir/orchestrator${prefix}/orchestrator/orchestrator $builddir/orchestrator-cli/usr/bin && echo "binary copied to orchestrator-cli" || (echo "Failed to copy orchestrator binary to orchestrator-cli" ; exit 1)
-  cp $builddir/orchestrator${prefix}/orchestrator/resources/bin/orchestrator-client $builddir/orchestrator-client/usr/bin && echo "orchestrator-client copied to orchestrator-client/" || (echo "Failed to copy orchestrator-client to orchestrator-client/" ; exit 1)
+  [[ $(find $builddir/orchestrator${prefix}/ -type f -name orchestrator) ]] &&  echo "orchestrator binary created" || (echo "Failed to generate orchestrator binary" ; exit 1)
+  cp $builddir/orchestrator${prefix}/orchestrator $builddir/orchestrator-cli/usr/bin && echo "binary copied to orchestrator-cli" || (echo "Failed to copy orchestrator binary to orchestrator-cli" ; exit 1)
 }
 
 function main() {
@@ -243,7 +245,7 @@ if [ -z "$target" ]; then
 	esac
 fi
 arch=${arch:-"amd64"} # default for arch is amd64 but should take from environment
-prefix=${prefix:-"/usr/local"}
+prefix=${prefix:-"/usr/bin"}
 
 [[ $debug -eq 1 ]] && set -x
 main "$target" "$arch" "$prefix" "$build_only"
